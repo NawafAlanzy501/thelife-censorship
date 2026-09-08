@@ -1,0 +1,768 @@
+const KEY = "tlc_state_v1";
+
+// ضع أكوادك السرية هنا
+const MASTER = "ضع_رمز_الدخول_هنا";
+const HIGH = "ضع_كود_الرقابة_العليا_هنا";
+const ADMIN = "ضع_كود_المسؤول_هنا";
+
+let state = JSON.parse(localStorage.getItem(KEY) || "null") || {
+  reports: [],
+  ranks: [
+    {
+      name: "Censorship",
+      code: "ضع_كود_الرقابة_هنا",
+      canSubmit: true
+    },
+    {
+      name: "Censorship High",
+      code: "ضع_كود_الرقابة_العليا_هنا",
+      canSubmit: true,
+      canReview: true
+    }
+  ],
+  users: []
+};
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+
+function esc(s = "") {
+  return String(s).replace(/[&<>"']/g, function (m) {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[m];
+  });
+}
+
+function toast(t) {
+  const x = document.querySelector(".toast");
+  if (!x) return;
+
+  x.textContent = t;
+  x.style.display = "block";
+
+  setTimeout(function () {
+    x.style.display = "none";
+  }, 2200);
+}
+
+/* =========================
+   LOGIN
+========================= */
+
+function login() {
+  document.getElementById("app").innerHTML = `
+    <div class="center">
+      <div class="card">
+
+        <div class="brand">TheLife Censorship</div>
+        <div class="muted">بوابة نظام الرقابة</div>
+
+        <div class="field">
+          <label>الرمز السري</label>
+          <input
+            id="master"
+            class="code"
+            type="password"
+            placeholder="أدخل رمز الدخول"
+          >
+        </div>
+
+        <button class="btn primary" onclick="checkMaster()">
+          دخول
+        </button>
+
+        <button class="btn ghost" onclick="highLogin()">
+          دخول الرقابة العليا
+        </button>
+
+        <button class="btn ghost" onclick="adminLogin()">
+          دخول المسؤول
+        </button>
+
+        <div id="err" class="error"></div>
+
+      </div>
+    </div>
+  `;
+}
+
+function checkMaster() {
+  const input = document.getElementById("master");
+
+  if (!input) return;
+
+  if (input.value === MASTER) {
+    sessionStorage.setItem("tlc_user", "Censorship");
+    dashboard("Censorship");
+  } else {
+    document.getElementById("err").textContent =
+      "رمز الدخول غير صحيح.";
+  }
+}
+
+/* =========================
+   HIGH LOGIN
+========================= */
+
+function highLogin() {
+  document.getElementById("app").innerHTML = `
+    <div class="center">
+      <div class="card">
+
+        <div class="brand">Censorship High</div>
+        <div class="muted">دخول الرقابة العليا</div>
+
+        <div class="field">
+          <label>كود الدخول</label>
+          <input
+            id="high"
+            class="code"
+            type="password"
+            placeholder="أدخل كود الرقابة العليا"
+          >
+        </div>
+
+        <button class="btn primary" onclick="checkHigh()">
+          دخول
+        </button>
+
+        <button class="btn ghost" onclick="login()">
+          رجوع
+        </button>
+
+        <div id="err" class="error"></div>
+
+      </div>
+    </div>
+  `;
+}
+
+function checkHigh() {
+  const input = document.getElementById("high");
+
+  if (!input) return;
+
+  if (input.value === HIGH) {
+    sessionStorage.setItem("tlc_user", "Censorship High");
+    dashboard("Censorship High");
+  } else {
+    document.getElementById("err").textContent =
+      "الكود غير صحيح.";
+  }
+}
+
+/* =========================
+   ADMIN LOGIN
+========================= */
+
+function adminLogin() {
+  document.getElementById("app").innerHTML = `
+    <div class="center">
+      <div class="card">
+
+        <div class="brand">Admin Panel</div>
+        <div class="muted">لوحة المسؤول</div>
+
+        <div class="field">
+          <label>كود المسؤول</label>
+          <input
+            id="admin"
+            class="code"
+            type="password"
+            placeholder="أدخل كود المسؤول"
+          >
+        </div>
+
+        <button class="btn primary" onclick="checkAdmin()">
+          دخول
+        </button>
+
+        <button class="btn ghost" onclick="login()">
+          رجوع
+        </button>
+
+        <div id="err" class="error"></div>
+
+      </div>
+    </div>
+  `;
+}
+
+function checkAdmin() {
+  const input = document.getElementById("admin");
+
+  if (!input) return;
+
+  if (input.value === ADMIN) {
+    sessionStorage.setItem("tlc_user", "Admin");
+    dashboard("Admin");
+  } else {
+    document.getElementById("err").textContent =
+      "الكود غير صحيح.";
+  }
+}
+
+/* =========================
+   DASHBOARD
+========================= */
+
+function dashboard(role) {
+  const canReview =
+    role === "Censorship High" ||
+    role === "Admin";
+
+  document.getElementById("app").innerHTML = `
+    <div class="layout">
+
+      <aside class="sidebar">
+
+        <div class="brandSmall">
+          TheLife Censorship
+        </div>
+
+        <div class="nav">
+
+          <button
+            class="btn ghost"
+            onclick="page('home')"
+          >
+            الرئيسية
+          </button>
+
+          <button
+            class="btn ghost"
+            onclick="page('submit')"
+          >
+            نموذج الرقابة
+          </button>
+
+          ${
+            canReview
+              ? "<button class='btn ghost' onclick=\"page('reports')\">البلاغات</button>"
+              : ""
+          }
+
+          ${
+            role === "Admin"
+              ? "<button class='btn ghost' onclick=\"page('ranks')\">إدارة الرتب</button>"
+              : ""
+          }
+
+        </div>
+
+        <div class="userbox">
+
+          <div class="muted">
+            الدور الحالي
+          </div>
+
+          <b>${esc(role)}</b>
+
+          <br>
+
+          <button
+            class="btn ghost"
+            style="margin-top:10px;width:100%"
+            onclick="logout()"
+          >
+            تسجيل خروج
+          </button>
+
+        </div>
+
+      </aside>
+
+      <main class="main">
+
+        <div id="content"></div>
+
+        <div class="toast"></div>
+
+      </main>
+
+    </div>
+  `;
+
+  page("home");
+}
+
+/* =========================
+   PAGES
+========================= */
+
+function page(name) {
+  const content = document.getElementById("content");
+
+  if (!content) return;
+
+  const role =
+    sessionStorage.getItem("tlc_user") || "Censorship";
+
+  /* HOME */
+
+  if (name === "home") {
+    content.innerHTML = `
+      <div class="card">
+
+        <h1>
+          مرحباً بك في TheLife Censorship
+        </h1>
+
+        <p class="muted">
+          نظام الرقابة وإدارة البلاغات.
+        </p>
+
+        <div class="grid">
+
+          <div class="card">
+            <h3>الرتبة الحالية</h3>
+            <p>${esc(role)}</p>
+          </div>
+
+          <div class="card">
+            <h3>عدد البلاغات</h3>
+            <p>${state.reports.length}</p>
+          </div>
+
+        </div>
+
+      </div>
+    `;
+
+    return;
+  }
+
+  /* SUBMIT */
+
+  if (name === "submit") {
+    content.innerHTML = `
+      <div class="card">
+
+        <h2>نموذج الرقابة</h2>
+
+        <p class="muted">
+          قم بتعبئة بيانات المخالف والسبب.
+        </p>
+
+        <div class="field">
+          <label>الرقابة كودك الرقابي</label>
+
+          <input
+            id="reportCode"
+            placeholder="أدخل كودك الرقابي"
+          >
+        </div>
+
+        <div class="field">
+          <label>يوزر المخالف دسكورد</label>
+
+          <input
+            id="discordUser"
+            placeholder="Discord Username"
+          >
+        </div>
+
+        <div class="field">
+          <label>يوزر المخالف روبلوكس</label>
+
+          <input
+            id="robloxUser"
+            placeholder="Roblox Username"
+          >
+        </div>
+
+        <div class="field">
+          <label>سبب المخالفة</label>
+
+          <textarea
+            id="reason"
+            rows="5"
+            placeholder="اكتب سبب المخالفة"
+          ></textarea>
+        </div>
+
+        <button
+          class="btn primary"
+          onclick="submitReport()"
+        >
+          إرسال البلاغ
+        </button>
+
+      </div>
+    `;
+
+    return;
+  }
+
+  /* REPORTS */
+
+  if (name === "reports") {
+    if (
+      role !== "Censorship High" &&
+      role !== "Admin"
+    ) {
+      content.innerHTML = `
+        <div class="card">
+          <h2>غير مصرح</h2>
+          <p class="error">
+            لا تملك صلاحية مشاهدة البلاغات.
+          </p>
+        </div>
+      `;
+
+      return;
+    }
+
+    let html = `
+      <div class="card">
+
+        <h2>البلاغات</h2>
+
+        <p class="muted">
+          مراجعة البلاغات المرسلة.
+        </p>
+    `;
+
+    if (state.reports.length === 0) {
+      html += `
+        <div class="card">
+          <p class="muted">
+            لا توجد بلاغات حالياً.
+          </p>
+        </div>
+      `;
+    }
+
+    state.reports.forEach(function (r, i) {
+      html += `
+        <div class="card">
+
+          <h3>
+            بلاغ #${i + 1}
+          </h3>
+
+          <p>
+            <b>كود الرقابة:</b>
+            ${esc(r.code)}
+          </p>
+
+          <p>
+            <b>دسكورد:</b>
+            ${esc(r.discord)}
+          </p>
+
+          <p>
+            <b>روبلوكس:</b>
+            ${esc(r.roblox)}
+          </p>
+
+          <p>
+            <b>السبب:</b>
+            ${esc(r.reason)}
+          </p>
+
+          <p>
+            <b>الحالة:</b>
+            ${esc(r.status)}
+          </p>
+
+          <p class="muted">
+            ${esc(r.date)}
+          </p>
+
+          ${
+            r.status === "قيد المراجعة"
+              ? `
+                <button
+                  class="btn primary"
+                  onclick="decide(${i}, 'مقبول')"
+                >
+                  قبول
+                </button>
+
+                <button
+                  class="btn ghost"
+                  onclick="decide(${i}, 'مرفوض')"
+                >
+                  رفض
+                </button>
+              `
+              : ""
+          }
+
+        </div>
+      `;
+    });
+
+    html += `
+      </div>
+    `;
+
+    content.innerHTML = html;
+
+    return;
+  }
+
+  /* RANKS */
+
+  if (name === "ranks") {
+    if (role !== "Admin") {
+      content.innerHTML = `
+        <div class="card">
+
+          <h2>غير مصرح</h2>
+
+          <p class="error">
+            هذه الصفحة للمسؤول فقط.
+          </p>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    let html = `
+      <div class="card">
+
+        <h2>إدارة الرتب</h2>
+
+        <p class="muted">
+          يمكنك تعديل أسماء الرتب وأكوادها.
+        </p>
+    `;
+
+    state.ranks.forEach(function (rank, i) {
+      html += `
+        <div class="card">
+
+          <div class="field">
+
+            <label>
+              اسم الرتبة
+            </label>
+
+            <input
+              id="rankName_${i}"
+              value="${esc(rank.name)}"
+            >
+
+          </div>
+
+          <div class="field">
+
+            <label>
+              كود الرتبة
+            </label>
+
+            <input
+              id="rankCode_${i}"
+              type="password"
+              value="${esc(rank.code)}"
+            >
+
+          </div>
+
+          <label>
+            <input
+              type="checkbox"
+              id="rankSubmit_${i}"
+              ${rank.canSubmit ? "checked" : ""}
+            >
+
+            صلاحية إرسال البلاغات
+          </label>
+
+          <br><br>
+
+          <label>
+            <input
+              type="checkbox"
+              id="rankReview_${i}"
+              ${rank.canReview ? "checked" : ""}
+            >
+
+            صلاحية مراجعة البلاغات
+          </label>
+
+        </div>
+      `;
+    });
+
+    html += `
+        <button
+          class="btn primary"
+          onclick="saveRanks()"
+        >
+          حفظ التغييرات
+        </button>
+
+      </div>
+    `;
+
+    content.innerHTML = html;
+
+    return;
+  }
+}
+
+/* =========================
+   SUBMIT REPORT
+========================= */
+
+function submitReport() {
+  const code =
+    document.getElementById("reportCode").value.trim();
+
+  const discord =
+    document.getElementById("discordUser").value.trim();
+
+  const roblox =
+    document.getElementById("robloxUser").value.trim();
+
+  const reason =
+    document.getElementById("reason").value.trim();
+
+  if (!code || !discord || !roblox || !reason) {
+    toast("يرجى تعبئة جميع الحقول.");
+    return;
+  }
+
+  const report = {
+    id: Date.now(),
+    code: code,
+    discord: discord,
+    roblox: roblox,
+    reason: reason,
+    status: "قيد المراجعة",
+    date: new Date().toLocaleString("ar-SA")
+  };
+
+  state.reports.unshift(report);
+
+  save();
+
+  toast("تم إرسال البلاغ بنجاح.");
+
+  setTimeout(function () {
+    page("home");
+  }, 700);
+}
+
+/* =========================
+   ACCEPT / REJECT
+========================= */
+
+function decide(index, status) {
+  const role =
+    sessionStorage.getItem("tlc_user");
+
+  if (
+    role !== "Censorship High" &&
+    role !== "Admin"
+  ) {
+    toast("ليس لديك صلاحية.");
+    return;
+  }
+
+  if (!state.reports[index]) {
+    toast("البلاغ غير موجود.");
+    return;
+  }
+
+  state.reports[index].status = status;
+
+  save();
+
+  toast(
+    status === "مقبول"
+      ? "تم قبول البلاغ."
+      : "تم رفض البلاغ."
+  );
+
+  page("reports");
+}
+
+/* =========================
+   SAVE RANKS
+========================= */
+
+function saveRanks() {
+  const role =
+    sessionStorage.getItem("tlc_user");
+
+  if (role !== "Admin") {
+    toast("ليس لديك صلاحية.");
+    return;
+  }
+
+  state.ranks.forEach(function (rank, i) {
+    const name =
+      document.getElementById(`rankName_${i}`);
+
+    const code =
+      document.getElementById(`rankCode_${i}`);
+
+    const canSubmit =
+      document.getElementById(`rankSubmit_${i}`);
+
+    const canReview =
+      document.getElementById(`rankReview_${i}`);
+
+    if (name) {
+      rank.name = name.value.trim();
+    }
+
+    if (code) {
+      rank.code = code.value.trim();
+    }
+
+    if (canSubmit) {
+      rank.canSubmit = canSubmit.checked;
+    }
+
+    if (canReview) {
+      rank.canReview = canReview.checked;
+    }
+  });
+
+  save();
+
+  toast("تم حفظ الرتب بنجاح.");
+
+  page("ranks");
+}
+
+/* =========================
+   LOGOUT
+========================= */
+
+function logout() {
+  sessionStorage.removeItem("tlc_user");
+  login();
+}
+
+/* =========================
+   START
+========================= */
+
+function start() {
+  const user =
+    sessionStorage.getItem("tlc_user");
+
+  if (user) {
+    dashboard(user);
+  } else {
+    login();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  start();
+});
